@@ -89,6 +89,98 @@ button:disabled{opacity:.42;cursor:not-allowed}
 .footerLine{text-align:center;color:#afbdd0;letter-spacing:.18em;text-transform:uppercase;font-size:8px;line-height:18px}
 #officialPrintReport{display:none}
 
+/* Login buttons stacked and equal width */
+.loginActionRow{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:10px!important;
+  max-width:320px!important;
+  margin:16px auto 0!important;
+}
+.loginActionRow .launchButton,
+.loginActionRow .launchAdminButton{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  min-height:46px!important;
+  font-size:14px!important;
+}
+
+/* Larger testing map with right-side control rail */
+.trainerWorkspace{
+  height:calc(100dvh - 92px)!important;
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr) 18px!important;
+  gap:7px!important;
+  padding:10px 12px 5px!important;
+  overflow:hidden!important;
+}
+.testingGrid{
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 360px;
+  gap:10px;
+}
+.mapWorkspace{min-height:0}
+.mapShell{
+  height:100%!important;
+  min-height:0!important;
+}
+.testSideRail{
+  min-height:0;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding-right:2px;
+}
+.testSideRail .card{flex:0 0 auto}
+.testQuestionCard #question{
+  min-height:74px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+}
+.testQuestionCard #answerArea{
+  display:block!important;
+}
+.testQuestionCard #submitBtn{
+  width:100%!important;
+  margin-top:8px!important;
+}
+.testQuestionCard #choices{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:7px!important;
+  margin-top:7px;
+}
+.testQuestionCard #nextBtn{
+  width:100%!important;
+  max-width:none!important;
+}
+.testProgressCard .stats{
+  grid-template-columns:1fr 1fr!important;
+}
+.studySearchCard{display:none}
+@media(max-width:1050px){
+  body{overflow:auto!important}
+  .trainerWorkspace{
+    height:auto!important;
+    min-height:calc(100dvh - 92px)!important;
+    overflow:visible!important;
+  }
+  .testingGrid{
+    grid-template-columns:1fr!important;
+  }
+  .mapShell{
+    height:60vh!important;
+    min-height:420px!important;
+  }
+  .testSideRail{overflow:visible}
+}
+
+
 .hiddenTrainerControls{display:none!important}
 .srOnly{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .loginActionRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px;margin:16px auto 0}
@@ -345,6 +437,17 @@ body.launchOpen header,body.launchOpen main{filter:blur(2px);pointer-events:none
       </div>
     </div>
 
+
+    <div class="selectionGroup">
+      <h3>Time Per Question</h3>
+      <div class="optionGrid lengthGrid" id="timeLimitOptions">
+        <button class="selectCard" data-value="0"><b>∞</b><span>Untimed</span></button>
+        <button class="selectCard" data-value="15"><b>15</b><span>Seconds</span></button>
+        <button class="selectCard selected" data-value="30"><b>30</b><span>Seconds</span></button>
+        <button class="selectCard" data-value="60"><b>60</b><span>Seconds</span></button>
+      </div>
+    </div>
+
     <button id="beginConfiguredTestBtn" class="launchButton setupStartButton">Load Streets & Start Test</button>
     <div id="setupLoadStatus" class="launchStatus">The street network loads automatically.</div>
   </div>
@@ -362,6 +465,7 @@ body.launchOpen header,body.launchOpen main{filter:blur(2px);pointer-events:none
     <button id="headerHomeBtn">Response Area</button>
   </div>
 </header>
+
 
 
 
@@ -404,63 +508,66 @@ body.launchOpen header,body.launchOpen main{filter:blur(2px);pointer-events:none
     <button id="startBtn" disabled type="button">Start Test</button>
   </div>
 
-  <section class="mapWorkspace">
-    <div class="mapShell">
-      <div class="mapStatusBar">
-        <div><span class="statusPulse"></span><strong>Response Area Online</strong></div>
-        <div class="mapMeta">
-          <span id="topStreetCount">Street network preparing…</span>
-          <span id="activeTraineeLabel">Training Session</span>
+  <section class="testingGrid">
+    <div class="mapWorkspace">
+      <div class="mapShell">
+        <div class="mapStatusBar">
+          <div><span class="statusPulse"></span><strong>Response Area Online</strong></div>
+          <div class="mapMeta">
+            <span id="topStreetCount">Street network preparing…</span>
+            <span id="activeTraineeLabel">Training Session</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="homeBtn" title="Return to response area">⌂</button>
+          <button id="labelsBtn" title="Toggle street labels">Labels</button>
+        </div>
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <aside class="testSideRail">
+      <div class="card testQuestionCard">
+        <div class="questionHeaderLine">
+          <h2>Current Question</h2>
+          <div class="compactTimer">Time: <strong id="topTimer">—</strong></div>
+        </div>
+        <div id="question">Street data is being prepared.</div>
+        <div id="answerArea">
+          <input id="answerInput" placeholder="Type street name" autocomplete="off">
+          <button class="primary" id="submitBtn" disabled>Submit Answer</button>
+          <div id="choices"></div>
+        </div>
+        <div id="feedback"></div>
+        <button id="nextBtn" disabled>Next Question</button>
+      </div>
+
+      <div class="card testProgressCard">
+        <h2>Session Progress</h2>
+        <div class="stats">
+          <div class="stat"><b id="correctStat">0</b><span>Correct</span></div>
+          <div class="stat"><b id="askedStat">0</b><span>Answered</span></div>
+          <div class="stat"><b id="pctStat">0%</b><span>Score</span></div>
+          <div class="stat"><b id="timerStat">—</b><span>Timer</span></div>
+        </div>
+        <div class="row">
+          <button id="printBtn">Print Results</button>
+          <button id="clearBtn">Clear Weak Streets</button>
         </div>
       </div>
-      <div class="toolbar">
-        <button id="homeBtn" title="Return to response area">⌂</button>
-        <button id="labelsBtn" title="Toggle street labels">Labels</button>
-      </div>
-      <div id="map"></div>
-    </div>
-  </section>
 
-  <section class="testControlRow">
-    <div class="card testQuestionCard">
-      <div class="questionHeaderLine">
-        <h2>Current Question</h2>
-        <div class="compactTimer">Time: <strong id="topTimer">—</strong></div>
+      <div class="card studySearchCard" id="streetDirectoryCard">
+        <h2>Study Street Search</h2>
+        <input id="streetSearch" placeholder="Search loaded streets">
+        <div id="streetList" class="street-list"></div>
       </div>
-      <div id="question">Street data is being prepared.</div>
-      <div id="answerArea">
-        <input id="answerInput" placeholder="Type street name" autocomplete="off">
-        <button class="primary" id="submitBtn" disabled>Submit Answer</button>
-        <div id="choices"></div>
-      </div>
-      <div id="feedback"></div>
-      <button id="nextBtn" disabled>Next Question</button>
-    </div>
-
-    <div class="card testProgressCard">
-      <h2>Session Progress</h2>
-      <div class="stats">
-        <div class="stat"><b id="correctStat">0</b><span>Correct</span></div>
-        <div class="stat"><b id="askedStat">0</b><span>Answered</span></div>
-        <div class="stat"><b id="pctStat">0%</b><span>Score</span></div>
-        <div class="stat"><b id="timerStat">—</b><span>Timer</span></div>
-      </div>
-      <div class="row">
-        <button id="printBtn">Print Results</button>
-        <button id="clearBtn">Clear Weak Streets</button>
-      </div>
-    </div>
-
-    <div class="card studySearchCard" id="streetDirectoryCard">
-      <h2>Study Street Search</h2>
-      <input id="streetSearch" placeholder="Search loaded streets">
-      <div id="streetList" class="street-list"></div>
-    </div>
+    </aside>
   </section>
 
   <div id="questionMirror" class="srOnly"></div>
   <div class="footerLine">Train hard • Know your area • Protect our community</div>
 </main>
+
 
 
 
@@ -663,7 +770,7 @@ const launchBadge=document.getElementById('launchBadge');
 const launchStatus=document.getElementById('launchStatus');
 const homeScreen=document.getElementById('homeScreen');
 const testSetupScreen=document.getElementById('testSetupScreen');
-let configuredMode='name',configuredLength='20';
+let configuredMode='name',configuredLength='20',configuredTime='30';
 
 function syncAppLogos(){
   const headerLogo=document.querySelector('.logoWrap img');
@@ -732,7 +839,7 @@ function savePersonalResult(){
 }
 function openTestSetup(){showOnly(testSetupScreen)}
 async function beginConfiguredTest(){
-  $('mode').value=configuredMode;$('questionCount').value=configuredLength;$('roadClass').value='all';$('timeLimit').value=configuredMode==='study'?'0':'30';
+  $('mode').value=configuredMode;$('questionCount').value=configuredLength;$('roadClass').value='all';$('timeLimit').value=configuredMode==='study'?'0':configuredTime;
   const s=document.getElementById('setupLoadStatus');s.textContent='Loading response area and streets…';s.className='launchStatus loading';
   document.getElementById('beginConfiguredTestBtn').disabled=true;
   try{
@@ -753,6 +860,13 @@ document.getElementById('testHomeBtn').onclick=()=>{showOnly(homeScreen);renderH
 document.getElementById('changeSessionBtn').onclick=openLaunchScreen;
 document.querySelectorAll('#testTypeOptions .selectCard').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('#testTypeOptions .selectCard').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');configuredMode=btn.dataset.value});
 document.querySelectorAll('#testLengthOptions .selectCard').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('#testLengthOptions .selectCard').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');configuredLength=btn.dataset.value});
+
+document.querySelectorAll('#timeLimitOptions .selectCard').forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll('#timeLimitOptions .selectCard').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  configuredTime=btn.dataset.value;
+});
+
 syncAppLogos();
 openLaunchScreen();
 
