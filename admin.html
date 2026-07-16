@@ -6,15 +6,26 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-:root{--navy:#031633;--panel:#082754;--gold:#f4b428;--text:#f8fbff;--muted:#adbad0;--line:#315b8e}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:linear-gradient(180deg,#021127,#031633);color:var(--text)}
+:root{--navy:#031633;--panel:#082754;--panel2:#061d3f;--gold:#f4b428;--text:#f8fbff;--muted:#adbad0;--line:#315b8e;--good:#55d990;--bad:#ff8d89}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#021127,#031633);color:var(--text)}
 header{padding:22px;background:#061d3f;border-bottom:3px solid var(--gold)}h1{margin:0;text-transform:uppercase}header p{color:#dbe7f6}
-main{padding:18px;max-width:1450px;margin:auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:14px}
+main{padding:18px;max-width:1500px;margin:auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:14px}
 input,button,select{border:1px solid #5278a3;border-radius:7px;padding:10px;font:inherit}input,select{background:#031633;color:white}button{background:var(--gold);font-weight:800;cursor:pointer}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#031633;padding:15px;border-radius:9px;text-align:center}.metric b{font-size:28px;display:block}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #315b8e;text-align:left}th{color:var(--gold);position:sticky;top:0;background:#082754}
-.tableWrap{overflow:auto;max-height:62vh}.hidden{display:none}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input,.toolbar select{flex:1;min-width:180px}.error{color:#ffaaa8}
-@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.metric{background:#031633;padding:15px;border-radius:9px;text-align:center}.metric b{font-size:28px;display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #315b8e;text-align:left;vertical-align:top}th{color:var(--gold);position:sticky;top:0;background:#082754}
+.tableWrap{overflow:auto;max-height:58vh}.hidden{display:none}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input,.toolbar select{flex:1;min-width:180px}.error{color:#ffaaa8}
+.person{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.person summary{cursor:pointer;list-style:none;padding:14px;display:grid;grid-template-columns:2fr repeat(5,1fr);gap:10px;align-items:center}
+.person summary::-webkit-details-marker{display:none}.person summary:hover{background:#0a2d5d}
+.personName b{display:block;font-size:16px}.personName span,.subtle{color:var(--muted);font-size:12px}
+.summaryStat strong{display:block;color:var(--gold);font-size:17px}.summaryStat span{color:var(--muted);font-size:10px;text-transform:uppercase}
+.personBody{padding:14px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(260px,.8fr) minmax(500px,2fr);gap:14px}
+.weakBox{background:#031633;border:1px solid #294f7e;border-radius:9px;padding:12px}.weakBox h3{margin:0 0 9px;color:var(--gold)}
+.weakItem{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #234777;padding:7px 0}.weakItem:last-child{border:0}.weakItem b{color:var(--bad)}
+.badge{display:inline-block;border:1px solid #4773a5;background:#031633;padding:3px 7px;border-radius:999px;font-size:11px}
+.good{color:var(--good)}.bad{color:var(--bad)}
+@media(max-width:1050px){.grid{grid-template-columns:repeat(2,1fr)}.person summary{grid-template-columns:2fr 1fr 1fr}.person summary .optional{display:none}.personBody{grid-template-columns:1fr}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.person summary{grid-template-columns:1fr 1fr}.personName{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -28,32 +39,56 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;borde
 <button id="loginBtn">Sign In</button>
 <p id="loginError" class="error"></p>
 </section>
+
 <section id="dashboard" class="hidden">
 <div class="toolbar card">
-<input id="search" placeholder="Search name or employee ID">
-<select id="sort"><option value="date">Newest first</option><option value="score">Highest score</option><option value="name">Name</option></select>
-<button id="exportBtn">Export CSV</button><button id="logoutBtn">Sign Out</button>
+<input id="search" placeholder="Search firefighter name or employee ID">
+<select id="sort">
+<option value="name">Name</option>
+<option value="recent">Most recent activity</option>
+<option value="average">Highest average score</option>
+<option value="attempts">Most attempts</option>
+</select>
+<select id="typeFilter"><option value="">All test types</option></select>
+<button id="exportBtn">Export CSV</button>
+<button id="logoutBtn">Sign Out</button>
 </div>
+
 <div class="grid">
 <div class="metric"><b id="totalTests">0</b><span>Completed Tests</span></div>
 <div class="metric"><b id="uniqueUsers">0</b><span>Unique Trainees</span></div>
 <div class="metric"><b id="avgScore">0%</b><span>Average Score</span></div>
 <div class="metric"><b id="siteVisits">0</b><span>Total Site Uses</span></div>
+<div class="metric"><b id="testTypes">0</b><span>Test Types Used</span></div>
 </div>
-<div class="card"><h2>Department Results</h2><div class="tableWrap"><table>
-<thead><tr><th>Date</th><th>Name</th><th>ID</th><th>Assignment</th><th>Mode</th><th>Score</th><th>Correct</th><th>Questions</th><th>Site Uses</th></tr></thead>
+
+<div class="card">
+<h2>Firefighter Performance</h2>
+<p class="subtle">Open a firefighter’s name to review test history, test types, and repeatedly missed streets.</p>
+<div id="people"></div>
+</div>
+
+<div class="card"><h2>All Test Attempts</h2><div class="tableWrap"><table>
+<thead><tr><th>Date</th><th>Name</th><th>ID</th><th>Assignment</th><th>Test Type</th><th>Street Group</th><th>Score</th><th>Correct</th><th>Questions</th></tr></thead>
 <tbody id="rows"></tbody></table></div></div>
 </section>
 </main>
+
 <script>
 const ready=typeof CFD_CONFIG!=='undefined'&&!CFD_CONFIG.SUPABASE_URL.includes('YOUR_');
 const db=ready?window.supabase.createClient(CFD_CONFIG.SUPABASE_URL,CFD_CONFIG.SUPABASE_ANON_KEY):null;
 let results=[],visits=[];
 const $=id=>document.getElementById(id);
-$('loginBtn').onclick=async()=>{if(!db){$('loginError').textContent='Configure config.js first.';return}
+
+$('loginBtn').onclick=async()=>{
+ if(!db){$('loginError').textContent='Configure config.js first.';return}
  const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});
- if(error){$('loginError').textContent=error.message;return}showDashboard()};
+ if(error){$('loginError').textContent=error.message;return}
+ showDashboard()
+};
+$('password').onkeydown=e=>{if(e.key==='Enter')$('loginBtn').click()};
 $('logoutBtn').onclick=async()=>{await db.auth.signOut();location.reload()};
+
 async function showDashboard(){
  const {data:{user}}=await db.auth.getUser();if(!user)return;
  $('loginCard').classList.add('hidden');$('dashboard').classList.remove('hidden');
@@ -62,24 +97,114 @@ async function showDashboard(){
   db.from('site_visits').select('*').order('visited_at',{ascending:false})
  ]);
  if(r.error){alert('Access denied or results unavailable: '+r.error.message);return}
- results=r.data||[];visits=v.data||[];render();
+ results=r.data||[];visits=v.data||[];
+ populateTypes();render();
 }
-function usesFor(row){return visits.filter(v=>(row.employee_id&&v.employee_id===row.employee_id)||(!row.employee_id&&v.trainee_name===row.trainee_name)).length}
+
+function personKey(r){return (r.employee_id||'').trim() ? 'id:'+r.employee_id.trim().toLowerCase() : 'name:'+(r.trainee_name||'Unnamed').trim().toLowerCase()}
+function usesForPerson(items){
+ const ids=new Set(items.map(r=>(r.employee_id||'').trim()).filter(Boolean));
+ const names=new Set(items.map(r=>(r.trainee_name||'').trim().toLowerCase()).filter(Boolean));
+ return visits.filter(v=>ids.has((v.employee_id||'').trim())||names.has((v.trainee_name||'').trim().toLowerCase())).length
+}
+function populateTypes(){
+ const types=[...new Set(results.map(r=>r.test_mode).filter(Boolean))].sort();
+ $('typeFilter').innerHTML='<option value="">All test types</option>'+types.map(t=>`<option>${esc(t)}</option>`).join('');
+}
+function groupedPeople(filtered){
+ const groups=new Map();
+ for(const r of filtered){const k=personKey(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
+ return [...groups.values()].map(items=>{
+   items.sort((a,b)=>new Date(b.completed_at)-new Date(a.completed_at));
+   const avg=Math.round(items.reduce((s,r)=>s+(r.score_percent||0),0)/items.length);
+   const best=Math.max(...items.map(r=>r.score_percent||0));
+   return {items,name:items[0].trainee_name||'Unnamed',employeeId:items[0].employee_id||'',avg,best,last:items[0].completed_at,uses:usesForPerson(items)}
+ });
+}
+function weaknessCounts(items){
+ const counts=new Map();
+ for(const r of items){
+   const streets=Array.isArray(r.missed_streets)?r.missed_streets:[];
+   for(const street of streets)counts.set(street,(counts.get(street)||0)+1)
+ }
+ return [...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
 function render(){
- const q=$('search').value.toLowerCase();let data=results.filter(r=>(r.trainee_name||'').toLowerCase().includes(q)||(r.employee_id||'').toLowerCase().includes(q));
- const s=$('sort').value;if(s==='score')data.sort((a,b)=>b.score_percent-a.score_percent);else if(s==='name')data.sort((a,b)=>(a.trainee_name||'').localeCompare(b.trainee_name||''));else data.sort((a,b)=>new Date(b.completed_at)-new Date(a.completed_at));
- $('rows').innerHTML=data.map(r=>`<tr><td>${new Date(r.completed_at).toLocaleString()}</td><td>${esc(r.trainee_name)}</td><td>${esc(r.employee_id||'—')}</td><td>${esc(r.assignment||'')}</td><td>${esc(r.test_mode||'')}</td><td><b>${r.score_percent}%</b></td><td>${r.correct_answers}</td><td>${r.question_count}</td><td>${usesFor(r)}</td></tr>`).join('');
+ const q=$('search').value.trim().toLowerCase(), type=$('typeFilter').value;
+ const filtered=results.filter(r=>
+   (!q||(r.trainee_name||'').toLowerCase().includes(q)||(r.employee_id||'').toLowerCase().includes(q)) &&
+   (!type||r.test_mode===type)
+ );
+ let people=groupedPeople(filtered);
+ const sort=$('sort').value;
+ if(sort==='recent')people.sort((a,b)=>new Date(b.last)-new Date(a.last));
+ else if(sort==='average')people.sort((a,b)=>b.avg-a.avg);
+ else if(sort==='attempts')people.sort((a,b)=>b.items.length-a.items.length);
+ else people.sort((a,b)=>a.name.localeCompare(b.name));
+
+ $('people').innerHTML=people.map((p,i)=>{
+   const weaknesses=weaknessCounts(p.items);
+   const weakHtml=weaknesses.length
+    ? weaknesses.slice(0,20).map(([street,count])=>`<div class="weakItem"><span>${esc(street)}</span><b>${count} miss${count===1?'':'es'}</b></div>`).join('')
+    : '<p class="subtle">No street-level weaknesses recorded. Older tests completed before this update will not include missed-street details.</p>';
+   const history=p.items.map(r=>`<tr>
+    <td>${new Date(r.completed_at).toLocaleString()}</td>
+    <td><span class="badge">${esc(r.test_mode||'Unknown')}</span></td>
+    <td>${esc(r.street_group||'')}</td>
+    <td><b class="${r.score_percent>=80?'good':'bad'}">${r.score_percent}%</b></td>
+    <td>${r.correct_answers}/${r.question_count}</td>
+    <td>${Array.isArray(r.missed_streets)?r.missed_streets.map(esc).join(', '):'Not recorded'}</td>
+   </tr>`).join('');
+   return `<details class="person" ${i===0&&q?'open':''}>
+    <summary>
+      <div class="personName"><b>${esc(p.name)}</b><span>${esc(p.employeeId||'No employee ID')}</span></div>
+      <div class="summaryStat"><strong>${p.avg}%</strong><span>Average</span></div>
+      <div class="summaryStat"><strong>${p.items.length}</strong><span>Attempts</span></div>
+      <div class="summaryStat optional"><strong>${p.best}%</strong><span>Best</span></div>
+      <div class="summaryStat optional"><strong>${p.uses}</strong><span>Site Uses</span></div>
+      <div class="summaryStat optional"><strong>${new Date(p.last).toLocaleDateString()}</strong><span>Last Test</span></div>
+    </summary>
+    <div class="personBody">
+      <div class="weakBox"><h3>Weak Streets</h3>${weakHtml}</div>
+      <div class="tableWrap"><table>
+       <thead><tr><th>Date</th><th>Test Type</th><th>Street Group</th><th>Score</th><th>Correct</th><th>Missed Streets</th></tr></thead>
+       <tbody>${history}</tbody>
+      </table></div>
+    </div>
+   </details>`;
+ }).join('') || '<p class="subtle">No matching results.</p>';
+
+ $('rows').innerHTML=filtered.map(r=>`<tr>
+  <td>${new Date(r.completed_at).toLocaleString()}</td>
+  <td>${esc(r.trainee_name)}</td>
+  <td>${esc(r.employee_id||'—')}</td>
+  <td>${esc(r.assignment||'')}</td>
+  <td><span class="badge">${esc(r.test_mode||'Unknown')}</span></td>
+  <td>${esc(r.street_group||'')}</td>
+  <td><b>${r.score_percent}%</b></td>
+  <td>${r.correct_answers}</td>
+  <td>${r.question_count}</td>
+ </tr>`).join('');
+
  $('totalTests').textContent=results.length;
- $('uniqueUsers').textContent=new Set(results.map(r=>r.employee_id||r.trainee_name)).size;
- $('avgScore').textContent=(results.length?Math.round(results.reduce((a,r)=>a+r.score_percent,0)/results.length):0)+'%';
+ $('uniqueUsers').textContent=new Set(results.map(personKey)).size;
+ $('avgScore').textContent=(results.length?Math.round(results.reduce((a,r)=>a+(r.score_percent||0),0)/results.length):0)+'%';
  $('siteVisits').textContent=visits.length;
+ $('testTypes').textContent=new Set(results.map(r=>r.test_mode).filter(Boolean)).size;
 }
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-$('search').oninput=render;$('sort').onchange=render;
-$('exportBtn').onclick=()=>{const head=['Date','Name','Employee ID','Assignment','Mode','Street Group','Questions','Correct','Incorrect','Score','Site Uses'];
- const rows=results.map(r=>[new Date(r.completed_at).toLocaleString(),r.trainee_name,r.employee_id||'',r.assignment,r.test_mode,r.street_group,r.question_count,r.correct_answers,r.incorrect_answers,r.score_percent,usesFor(r)]);
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+$('search').oninput=render;$('sort').onchange=render;$('typeFilter').onchange=render;
+
+$('exportBtn').onclick=()=>{
+ const head=['Date','Name','Employee ID','Assignment','Test Type','Street Group','Questions','Correct','Incorrect','Score','Missed Streets'];
+ const rows=results.map(r=>[
+  new Date(r.completed_at).toLocaleString(),r.trainee_name,r.employee_id||'',r.assignment,r.test_mode,r.street_group,
+  r.question_count,r.correct_answers,r.incorrect_answers,r.score_percent,
+  Array.isArray(r.missed_streets)?r.missed_streets.join('; '):''
+ ]);
  const csv=[head,...rows].map(row=>row.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');
- const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='CFD_Street_Training_Results.csv';a.click()};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='CFD_Street_Training_Results.csv';a.click()
+};
 db?.auth.getSession().then(({data})=>{if(data.session)showDashboard()});
 </script>
 </body></html>

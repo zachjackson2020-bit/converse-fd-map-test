@@ -492,6 +492,7 @@ const DEVICE_KEY='cfdDeviceIdV1';
 let deviceId=localStorage.getItem(DEVICE_KEY);
 if(!deviceId){deviceId=crypto.randomUUID();localStorage.setItem(DEVICE_KEY,deviceId)}
 let sessionStartedAt=null, sessionFinishedAt=null, sessionSaved=false, plannedQuestions=0;
+let sessionMissedStreets=[];
 
 async function recordVisit(){
   if(!db) return;
@@ -516,7 +517,8 @@ async function saveCompletedResult(){
     score_percent:Math.round(correct/asked*100),
     started_at:sessionStartedAt?.toISOString() || new Date().toISOString(),
     completed_at:sessionFinishedAt?.toISOString() || new Date().toISOString(),
-    device_id:deviceId
+    device_id:deviceId,
+    missed_streets:sessionMissedStreets
   };
   const {error}=await db.from('test_results').insert(result);
   if(error){console.error('Result save failed:',error);status('Test completed, but the department database could not be reached.','warnText')}
@@ -586,7 +588,7 @@ $('streetSearch').oninput=updateDirectory;
 function pool(){const c=$('roadClass').value;let a=Object.keys(grouped);if(c==='major'||c==='residential')a=a.filter(n=>grouped[n].some(f=>f.properties.category===c));if(c==='missed')a=a.filter(n=>missed.has(n));return a}
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 function start(){
- sessionStartedAt=new Date();sessionFinishedAt=null;sessionSaved=false;
+ sessionStartedAt=new Date();sessionFinishedAt=null;sessionSaved=false;sessionMissedStreets=[];
  activePool=pool();if(activePool.length<2){alert('Not enough streets match those settings.');return}
  correct=asked=0;updateStats();const n=$('questionCount').value==='all'?activePool.length:Math.min(+$('questionCount').value,activePool.length);plannedQuestions=n;queue=shuffle(activePool).slice(0,n);
  if($('mode').value==='study')return study();next();
@@ -602,7 +604,7 @@ function next(){
 function beginTimer(){clearInterval(timer);timeLeft=+$('timeLimit').value;if(!timeLeft){$('timerStat').textContent='—';return}$('timerStat').textContent=timeLeft;timer=setInterval(()=>{timeLeft--;$('timerStat').textContent=timeLeft;$('timerStat').className=timeLeft<=5?'timerWarn':'';if(timeLeft<=0){clearInterval(timer);grade('__TIME__')}},1000)}
 function highlight(name,color,w,zoom){const ls=[];(grouped[name]||[]).forEach(f=>ls.push(L.geoJSON(f,{style:{color,weight:w,opacity:1}}).addTo(hiLayer)));if(zoom&&ls.length)map.fitBounds(L.featureGroup(ls).getBounds(),{padding:[45,45],maxZoom:16})}
 function choices(){const opts=shuffle([current,...shuffle(activePool.filter(n=>n!==current)).slice(0,3)]);$('choices').innerHTML=opts.map(x=>`<button class="choice" data-n="${escapeHtml(x)}">${escapeHtml(x)}</button>`).join('');document.querySelectorAll('.choice').forEach(b=>b.onclick=()=>grade(b.dataset.n))}
-function grade(ans){if(waiting)return;clearInterval(timer);const ok=norm(ans)===norm(current);asked++;if(ok){correct++;missed.delete(current)}else missed.add(current);localStorage.setItem(MISSED_KEY,JSON.stringify([...missed]));updateStats();updateDirectory();$('feedback').innerHTML=ok?`<span class="goodText">Correct — ${escapeHtml(current)}</span>`:`<span class="badText">${ans==='__TIME__'?'Time expired.':'Incorrect.'}</span> Correct answer: <b>${escapeHtml(current)}</b>`;hiLayer.clearLayers();highlight(current,ok?'#22c55e':'#ef4444',9,true);waiting=true;$('submitBtn').disabled=true;$('nextBtn').disabled=false}
+function grade(ans){if(waiting)return;clearInterval(timer);const ok=norm(ans)===norm(current);asked++;if(ok){correct++;missed.delete(current)}else{missed.add(current);sessionMissedStreets.push(current)}localStorage.setItem(MISSED_KEY,JSON.stringify([...missed]));updateStats();updateDirectory();$('feedback').innerHTML=ok?`<span class="goodText">Correct — ${escapeHtml(current)}</span>`:`<span class="badText">${ans==='__TIME__'?'Time expired.':'Incorrect.'}</span> Correct answer: <b>${escapeHtml(current)}</b>`;hiLayer.clearLayers();highlight(current,ok?'#22c55e':'#ef4444',9,true);waiting=true;$('submitBtn').disabled=true;$('nextBtn').disabled=false}
 $('submitBtn').onclick=()=>grade($('answerInput').value);$('answerInput').onkeydown=e=>{if(e.key==='Enter')grade(e.target.value)};$('nextBtn').onclick=next;
 function mapAnswer(n){if($('mode').value==='locate'&&current&&!waiting)grade(n)}
 function updateStats(){$('correctStat').textContent=correct;$('askedStat').textContent=asked;$('pctStat').textContent=(asked?Math.round(correct/asked*100):0)+'%'}
