@@ -19,7 +19,7 @@ linear-gradient(180deg,#020816,#06152c 55%,#020816);color:var(--text);min-height
 header{padding:22px 28px;background:linear-gradient(135deg,rgba(2,8,22,.97),rgba(8,39,84,.94));border-bottom:1px solid rgba(245,184,46,.55);display:flex;justify-content:space-between;align-items:center;gap:20px;position:sticky;top:0;z-index:20;backdrop-filter:blur(14px)}
 header h1{margin:0;text-transform:uppercase;font-size:clamp(24px,3vw,42px);letter-spacing:.03em}
 header p{margin:6px 0 0;color:#cbd8e8}
-header .tag{padding:7px 11px;border-radius:999px;border:1px solid rgba(245,184,46,.45);color:var(--gold);font-weight:800;font-size:12px}
+.adminHeaderActions{display:flex;align-items:center;gap:10px}.adminHeaderActions button{width:auto;margin:0;padding:9px 12px}header .tag{padding:7px 11px;border-radius:999px;border:1px solid rgba(245,184,46,.45);color:var(--gold);font-weight:800;font-size:12px}
 main{padding:18px;max-width:1600px;margin:auto}
 .card{background:linear-gradient(180deg,rgba(10,42,85,.86),rgba(5,25,52,.92));border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 18px 45px rgba(0,0,0,.25);backdrop-filter:blur(14px)}
 input,button,select{border:1px solid rgba(96,145,199,.6);border-radius:10px;padding:10px 11px;font:inherit}
@@ -56,7 +56,7 @@ th{color:var(--gold);position:sticky;top:0;background:#082754}.tableWrap{overflo
 </head>
 <body>
 <header>
-  <div><h1>Converse FD Command Dashboard</h1><p>Department readiness, firefighter profiles, and progress intelligence</p></div>
+  <div><h1>Converse FD Command Dashboard</h1><p>Department readiness, firefighter profiles, and progress intelligence</p></div><div class="adminHeaderActions"><button id="backToTrainerBtn" class="secondary">Back to Login</button><div class="tag">Authorized Access</div></div>
   <div class="tag">Authorized Access</div>
 </header>
 <main>
@@ -130,6 +130,7 @@ $('loginBtn').onclick=async()=>{
 };
 $('password').onkeydown=e=>{if(e.key==='Enter')$('loginBtn').click()};
 $('logoutBtn').onclick=async()=>{await db.auth.signOut();location.reload()};
+$('backToTrainerBtn').onclick=()=>location.href='index.html';
 
 async function showDashboard(){
  const {data:{user}}=await db.auth.getUser();if(!user)return;
@@ -265,6 +266,10 @@ $('exportBtn').onclick=()=>{
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='CFD_Street_Training_Results.csv';a.click()
 };
 window.addEventListener('resize',()=>{if(!$('dashboard').classList.contains('hidden'))render()});
-db?.auth.getSession().then(({data})=>{if(data.session)showDashboard()});
+db?.auth.getSession().then(async ({data})=>{
+ const forceLogin=new URLSearchParams(location.search).get('login')==='1';
+ if(forceLogin && data.session){await db.auth.signOut();return}
+ if(data.session)showDashboard()
+});
 </script>
 </body></html>
