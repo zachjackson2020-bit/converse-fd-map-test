@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CFD Authorized Results Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+:root{--navy:#031633;--panel:#082754;--gold:#f4b428;--text:#f8fbff;--muted:#adbad0;--line:#315b8e}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:linear-gradient(180deg,#021127,#031633);color:var(--text)}
+header{padding:22px;background:#061d3f;border-bottom:3px solid var(--gold)}h1{margin:0;text-transform:uppercase}header p{color:#dbe7f6}
+main{padding:18px;max-width:1450px;margin:auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:14px}
+input,button,select{border:1px solid #5278a3;border-radius:7px;padding:10px;font:inherit}input,select{background:#031633;color:white}button{background:var(--gold);font-weight:800;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#031633;padding:15px;border-radius:9px;text-align:center}.metric b{font-size:28px;display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #315b8e;text-align:left}th{color:var(--gold);position:sticky;top:0;background:#082754}
+.tableWrap{overflow:auto;max-height:62vh}.hidden{display:none}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input,.toolbar select{flex:1;min-width:180px}.error{color:#ffaaa8}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><h1>Converse Fire Department</h1><p>Authorized Street-Training Results Dashboard</p></header>
+<main>
+<section id="loginCard" class="card">
+<h2>Administrator Sign In</h2>
+<p>This page is restricted to approved department administrators.</p>
+<input id="email" type="email" placeholder="Department email">
+<input id="password" type="password" placeholder="Password">
+<button id="loginBtn">Sign In</button>
+<p id="loginError" class="error"></p>
+</section>
+<section id="dashboard" class="hidden">
+<div class="toolbar card">
+<input id="search" placeholder="Search name or employee ID">
+<select id="sort"><option value="date">Newest first</option><option value="score">Highest score</option><option value="name">Name</option></select>
+<button id="exportBtn">Export CSV</button><button id="logoutBtn">Sign Out</button>
+</div>
+<div class="grid">
+<div class="metric"><b id="totalTests">0</b><span>Completed Tests</span></div>
+<div class="metric"><b id="uniqueUsers">0</b><span>Unique Trainees</span></div>
+<div class="metric"><b id="avgScore">0%</b><span>Average Score</span></div>
+<div class="metric"><b id="siteVisits">0</b><span>Total Site Uses</span></div>
+</div>
+<div class="card"><h2>Department Results</h2><div class="tableWrap"><table>
+<thead><tr><th>Date</th><th>Name</th><th>ID</th><th>Assignment</th><th>Mode</th><th>Score</th><th>Correct</th><th>Questions</th><th>Site Uses</th></tr></thead>
+<tbody id="rows"></tbody></table></div></div>
+</section>
+</main>
+<script>
+const ready=typeof CFD_CONFIG!=='undefined'&&!CFD_CONFIG.SUPABASE_URL.includes('YOUR_');
+const db=ready?window.supabase.createClient(CFD_CONFIG.SUPABASE_URL,CFD_CONFIG.SUPABASE_ANON_KEY):null;
+let results=[],visits=[];
+const $=id=>document.getElementById(id);
+$('loginBtn').onclick=async()=>{if(!db){$('loginError').textContent='Configure config.js first.';return}
+ const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});
+ if(error){$('loginError').textContent=error.message;return}showDashboard()};
+$('logoutBtn').onclick=async()=>{await db.auth.signOut();location.reload()};
+async function showDashboard(){
+ const {data:{user}}=await db.auth.getUser();if(!user)return;
+ $('loginCard').classList.add('hidden');$('dashboard').classList.remove('hidden');
+ const [r,v]=await Promise.all([
+  db.from('test_results').select('*').order('completed_at',{ascending:false}),
+  db.from('site_visits').select('*').order('visited_at',{ascending:false})
+ ]);
+ if(r.error){alert('Access denied or results unavailable: '+r.error.message);return}
+ results=r.data||[];visits=v.data||[];render();
+}
+function usesFor(row){return visits.filter(v=>(row.employee_id&&v.employee_id===row.employee_id)||(!row.employee_id&&v.trainee_name===row.trainee_name)).length}
+function render(){
+ const q=$('search').value.toLowerCase();let data=results.filter(r=>(r.trainee_name||'').toLowerCase().includes(q)||(r.employee_id||'').toLowerCase().includes(q));
+ const s=$('sort').value;if(s==='score')data.sort((a,b)=>b.score_percent-a.score_percent);else if(s==='name')data.sort((a,b)=>(a.trainee_name||'').localeCompare(b.trainee_name||''));else data.sort((a,b)=>new Date(b.completed_at)-new Date(a.completed_at));
+ $('rows').innerHTML=data.map(r=>`<tr><td>${new Date(r.completed_at).toLocaleString()}</td><td>${esc(r.trainee_name)}</td><td>${esc(r.employee_id||'—')}</td><td>${esc(r.assignment||'')}</td><td>${esc(r.test_mode||'')}</td><td><b>${r.score_percent}%</b></td><td>${r.correct_answers}</td><td>${r.question_count}</td><td>${usesFor(r)}</td></tr>`).join('');
+ $('totalTests').textContent=results.length;
+ $('uniqueUsers').textContent=new Set(results.map(r=>r.employee_id||r.trainee_name)).size;
+ $('avgScore').textContent=(results.length?Math.round(results.reduce((a,r)=>a+r.score_percent,0)/results.length):0)+'%';
+ $('siteVisits').textContent=visits.length;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+$('search').oninput=render;$('sort').onchange=render;
+$('exportBtn').onclick=()=>{const head=['Date','Name','Employee ID','Assignment','Mode','Street Group','Questions','Correct','Incorrect','Score','Site Uses'];
+ const rows=results.map(r=>[new Date(r.completed_at).toLocaleString(),r.trainee_name,r.employee_id||'',r.assignment,r.test_mode,r.street_group,r.question_count,r.correct_answers,r.incorrect_answers,r.score_percent,usesFor(r)]);
+ const csv=[head,...rows].map(row=>row.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='CFD_Street_Training_Results.csv';a.click()};
+db?.auth.getSession().then(({data})=>{if(data.session)showDashboard()});
+</script>
+</body></html>

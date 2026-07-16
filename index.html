@@ -296,6 +296,36 @@ button:disabled{opacity:.48;cursor:not-allowed;transform:none}
   .mapShell{height:65vh}
   .questionPanel{color:black;background:white;border:1px solid #bbb;box-shadow:none}
 }
+
+.adminLink{display:block;text-align:center;color:#ffd56a;font-weight:800;margin-top:10px;text-decoration:none}
+#officialPrintReport{display:none}
+@media print{
+  body *{visibility:hidden!important}
+  #officialPrintReport,#officialPrintReport *{visibility:visible!important}
+  #officialPrintReport{
+    display:block!important;position:absolute;inset:0;width:100%;
+    padding:.55in;color:#0b1d38;background:white;font-family:Arial,sans-serif
+  }
+  .printHeader{display:flex;align-items:center;gap:22px;border-bottom:5px solid #e5ad24;padding-bottom:14px}
+  .printHeader img{width:105px;height:125px;object-fit:contain}
+  .printHeader h1{font-size:28px;margin:0;color:#061d3f;text-transform:uppercase}
+  .printHeader h2{font-size:18px;margin:7px 0 0;color:#9a6a00;text-transform:uppercase}
+  .printMeta{display:grid;grid-template-columns:1fr 1fr;gap:0;border:2px solid #0b2c59;margin-top:22px}
+  .printMeta div{padding:11px 13px;border-bottom:1px solid #9ca9b8}
+  .printMeta div:nth-child(odd){border-right:1px solid #9ca9b8}
+  .printMeta span{display:block;font-size:10px;text-transform:uppercase;color:#58697b;margin-bottom:4px}
+  .printMeta b{font-size:14px;color:#061d3f}
+  .printScore{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:24px 0}
+  .printScore div{text-align:center;border:2px solid #0b2c59;padding:18px 8px}
+  .printScore strong{display:block;font-size:30px;color:#061d3f}
+  .printScore span{font-size:11px;text-transform:uppercase;color:#58697b}
+  .printCertification{border-top:2px solid #0b2c59;padding-top:16px}
+  .signatureRow{display:grid;grid-template-columns:1fr 1fr;gap:42px;margin-top:58px}
+  .signatureRow div{border-top:1px solid #111;padding-top:7px}
+  .signatureRow span{font-size:11px;text-transform:uppercase}
+  #officialPrintReport footer{position:absolute;left:.55in;right:.55in;bottom:.4in;text-align:center;border-top:2px solid #e5ad24;padding-top:9px;font-size:11px;text-transform:uppercase;letter-spacing:.1em}
+}
+
 </style>
 
 </head>
@@ -325,6 +355,7 @@ button:disabled{opacity:.48;cursor:not-allowed;transform:none}
       <span class="pill" id="cachePill">No cache</span>
     </div>
     <button id="refreshBtn">Refresh Street Dataset</button>
+    <a href="admin.html" class="adminLink">Authorized Results Dashboard</a>
     <div class="small">The street network is cached on this device after the first successful load. The response-area boundary is permanently embedded.</div>
   </div>
 
@@ -332,6 +363,8 @@ button:disabled{opacity:.48;cursor:not-allowed;transform:none}
     <h2>● Trainee Information</h2>
     <label>Name / ID</label>
     <input id="trainee" placeholder="Enter firefighter name">
+    <label>Firefighter / Employee ID</label>
+    <input id="employeeId" placeholder="Enter department ID">
     <label>Assignment</label>
     <select id="assignment">
       <option>Entire CFD Response Area</option>
@@ -408,9 +441,106 @@ button:disabled{opacity:.48;cursor:not-allowed;transform:none}
 </div>
 </section>
 </main>
+
+<section id="officialPrintReport">
+  <div class="printHeader">
+    <img id="printLogo" alt="Converse Fire Department logo">
+    <div>
+      <h1>Converse Fire Department</h1>
+      <h2>Street Recognition Training Record</h2>
+    </div>
+  </div>
+  <div class="printMeta">
+    <div><span>Trainee</span><b id="printName">—</b></div>
+    <div><span>Employee ID</span><b id="printEmployeeId">—</b></div>
+    <div><span>Assignment</span><b id="printAssignment">—</b></div>
+    <div><span>Date</span><b id="printDate">—</b></div>
+    <div><span>Start Time</span><b id="printStart">—</b></div>
+    <div><span>Completion Time</span><b id="printEnd">—</b></div>
+    <div><span>Training Mode</span><b id="printMode">—</b></div>
+    <div><span>Street Group</span><b id="printGroup">—</b></div>
+  </div>
+  <div class="printScore">
+    <div><strong id="printScore">0%</strong><span>Final Score</span></div>
+    <div><strong id="printCorrect">0</strong><span>Correct</span></div>
+    <div><strong id="printIncorrect">0</strong><span>Incorrect</span></div>
+    <div><strong id="printQuestions">0</strong><span>Questions</span></div>
+  </div>
+  <div class="printCertification">
+    <p>This document records completion of the Converse Fire Department Street Recognition Trainer.</p>
+    <div class="signatureRow">
+      <div><span>Trainee Signature</span></div>
+      <div><span>Officer / Evaluator Signature</span></div>
+    </div>
+  </div>
+  <footer>Converse Fire Department • Converse, Texas</footer>
+</section>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script>
+
+const SUPABASE_READY = typeof CFD_CONFIG !== 'undefined' &&
+  CFD_CONFIG.SUPABASE_URL && CFD_CONFIG.SUPABASE_ANON_KEY &&
+  !CFD_CONFIG.SUPABASE_URL.includes('YOUR_');
+const db = SUPABASE_READY ? window.supabase.createClient(
+  CFD_CONFIG.SUPABASE_URL, CFD_CONFIG.SUPABASE_ANON_KEY
+) : null;
+const DEVICE_KEY='cfdDeviceIdV1';
+let deviceId=localStorage.getItem(DEVICE_KEY);
+if(!deviceId){deviceId=crypto.randomUUID();localStorage.setItem(DEVICE_KEY,deviceId)}
+let sessionStartedAt=null, sessionFinishedAt=null, sessionSaved=false, plannedQuestions=0;
+
+async function recordVisit(){
+  if(!db) return;
+  await db.from('site_visits').insert({
+    device_id:deviceId,
+    trainee_name:document.getElementById('trainee')?.value.trim() || null,
+    employee_id:document.getElementById('employeeId')?.value.trim() || null,
+    page:'trainer'
+  });
+}
+async function saveCompletedResult(){
+  if(!db || sessionSaved || asked===0) return;
+  const result={
+    trainee_name:$('trainee').value.trim() || 'Unnamed trainee',
+    employee_id:$('employeeId').value.trim() || null,
+    assignment:$('assignment').value,
+    test_mode:$('mode').options[$('mode').selectedIndex].text,
+    street_group:$('roadClass').options[$('roadClass').selectedIndex].text,
+    question_count:asked,
+    correct_answers:correct,
+    incorrect_answers:asked-correct,
+    score_percent:Math.round(correct/asked*100),
+    started_at:sessionStartedAt?.toISOString() || new Date().toISOString(),
+    completed_at:sessionFinishedAt?.toISOString() || new Date().toISOString(),
+    device_id:deviceId
+  };
+  const {error}=await db.from('test_results').insert(result);
+  if(error){console.error('Result save failed:',error);status('Test completed, but the department database could not be reached.','warnText')}
+  else{sessionSaved=true;status('Test completed and securely recorded.','goodText')}
+}
+function populatePrintReport(){
+  const now=sessionFinishedAt || new Date();
+  const start=sessionStartedAt || now;
+  $('printName').textContent=$('trainee').value.trim() || 'Not entered';
+  $('printEmployeeId').textContent=$('employeeId').value.trim() || 'Not entered';
+  $('printAssignment').textContent=$('assignment').value;
+  $('printDate').textContent=now.toLocaleDateString();
+  $('printStart').textContent=start.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+  $('printEnd').textContent=now.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+  $('printMode').textContent=$('mode').options[$('mode').selectedIndex].text;
+  $('printGroup').textContent=$('roadClass').options[$('roadClass').selectedIndex].text;
+  $('printScore').textContent=(asked?Math.round(correct/asked*100):0)+'%';
+  $('printCorrect').textContent=correct;
+  $('printIncorrect').textContent=Math.max(0,asked-correct);
+  $('printQuestions').textContent=asked;
+  const headerLogo=document.querySelector('.logoWrap img');
+  if(headerLogo) $('printLogo').src=headerLogo.src;
+}
+
 const EMBEDDED_BOUNDARY={"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[-98.333805,29.510969],[-98.333033,29.513583],[-98.344879,29.517092],[-98.341789,29.520751],[-98.344755,29.522389],[-98.346558,29.526122],[-98.352739,29.530527],[-98.337029,29.538627],[-98.334153,29.537096],[-98.33102,29.538627],[-98.325612,29.535491],[-98.322865,29.532468],[-98.321019,29.533812],[-98.318401,29.535155],[-98.315396,29.536835],[-98.308958,29.527316],[-98.305052,29.531796],[-98.303421,29.532468],[-98.298828,29.53635],[-98.297969,29.535155],[-98.298785,29.530527],[-98.288741,29.515221],[-98.283547,29.515445],[-98.280843,29.510629],[-98.28123,29.510181],[-98.279985,29.508426],[-98.284105,29.505962],[-98.277238,29.504207],[-98.278783,29.499353],[-98.269383,29.496926],[-98.273031,29.491063],[-98.27492,29.489793],[-98.276551,29.487403],[-98.281058,29.480718],[-98.277152,29.487665],[-98.285007,29.488038],[-98.287282,29.487366],[-98.28887,29.486507],[-98.29093,29.485162],[-98.298785,29.486544],[-98.299214,29.485312],[-98.297927,29.484938],[-98.299171,29.483482],[-98.299944,29.480606],[-98.299429,29.47717],[-98.297927,29.470149],[-98.296424,29.466563],[-98.30591,29.468841],[-98.308056,29.462603],[-98.310675,29.463201],[-98.31076,29.46279],[-98.316555,29.461147],[-98.315525,29.464322],[-98.319989,29.470821],[-98.327329,29.48098],[-98.328573,29.483071],[-98.329561,29.483557],[-98.32926,29.484154],[-98.330033,29.484714],[-98.33102,29.48647],[-98.331793,29.48703],[-98.33205,29.488262],[-98.332951,29.488822],[-98.3369,29.49476],[-98.337931,29.495805],[-98.339476,29.49644],[-98.341579,29.496701],[-98.343253,29.496291],[-98.344712,29.495768],[-98.346515,29.495581],[-98.348189,29.495917],[-98.349219,29.496664],[-98.34806,29.496403],[-98.34248,29.500211],[-98.337158,29.506111],[-98.335959,29.507544],[-98.337397,29.508739],[-98.333805,29.510969]]]}};
 const CACHE_KEY='cfdStreetDatasetV2', CACHE_DATE_KEY='cfdStreetDatasetDateV2', MISSED_KEY='cfdMissedV2';
 const map=L.map('map',{preferCanvas:true,zoomControl:true});
@@ -456,14 +586,15 @@ $('streetSearch').oninput=updateDirectory;
 function pool(){const c=$('roadClass').value;let a=Object.keys(grouped);if(c==='major'||c==='residential')a=a.filter(n=>grouped[n].some(f=>f.properties.category===c));if(c==='missed')a=a.filter(n=>missed.has(n));return a}
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 function start(){
+ sessionStartedAt=new Date();sessionFinishedAt=null;sessionSaved=false;
  activePool=pool();if(activePool.length<2){alert('Not enough streets match those settings.');return}
- correct=asked=0;updateStats();const n=$('questionCount').value==='all'?activePool.length:Math.min(+$('questionCount').value,activePool.length);queue=shuffle(activePool).slice(0,n);
+ correct=asked=0;updateStats();const n=$('questionCount').value==='all'?activePool.length:Math.min(+$('questionCount').value,activePool.length);plannedQuestions=n;queue=shuffle(activePool).slice(0,n);
  if($('mode').value==='study')return study();next();
 }
 $('startBtn').onclick=start;
 function study(){clearInterval(timer);hiLayer.clearLayers();$('question').textContent='Study mode: hover over or click any street to see its name.';$('answerArea').style.display='none';for(const [name,fs] of Object.entries(grouped))fs.forEach(f=>L.geoJSON(f,{style:{color:'#2563eb',weight:4,opacity:.8}}).bindTooltip(name,{sticky:true}).addTo(hiLayer))}
 function next(){
- clearInterval(timer);if(!queue.length){$('question').textContent=`Session complete — ${correct} correct out of ${asked}.`;$('feedback').textContent='';$('answerArea').style.display='none';$('nextBtn').disabled=true;$('timerStat').textContent='—';return}
+ clearInterval(timer);if(!queue.length){sessionFinishedAt=new Date();saveCompletedResult();populatePrintReport();$('question').textContent=`Session complete — ${correct} correct out of ${asked}.`;$('feedback').textContent='';$('answerArea').style.display='none';$('nextBtn').disabled=true;$('timerStat').textContent='—';return}
  $('answerArea').style.display='block';$('feedback').textContent='';$('choices').innerHTML='';$('answerInput').value='';$('nextBtn').disabled=true;$('submitBtn').disabled=false;waiting=false;current=queue.shift();hiLayer.clearLayers();drawRoads();
  const m=$('mode').value;if(m==='name'||m==='multiple'){highlight(current,'#f97316',8,true);$('question').textContent='What street is highlighted?';$('answerInput').style.display=m==='name'?'block':'none';$('submitBtn').style.display=m==='name'?'block':'none';if(m==='multiple')choices()}else{$('question').textContent=`Locate ${current} on the map.`;$('answerInput').style.display='none';$('submitBtn').style.display='none'}
  beginTimer();
@@ -476,16 +607,17 @@ $('submitBtn').onclick=()=>grade($('answerInput').value);$('answerInput').onkeyd
 function mapAnswer(n){if($('mode').value==='locate'&&current&&!waiting)grade(n)}
 function updateStats(){$('correctStat').textContent=correct;$('askedStat').textContent=asked;$('pctStat').textContent=(asked?Math.round(correct/asked*100):0)+'%'}
 $('clearBtn').onclick=()=>{if(confirm('Clear all weak-street history on this device?')){missed.clear();localStorage.removeItem(MISSED_KEY);updateDirectory()}};
-$('printBtn').onclick=()=>window.print();$('homeBtn').onclick=()=>map.fitBounds(boundaryLayer.getBounds(),{padding:[20,20]});
+$('printBtn').onclick=()=>{populatePrintReport();window.print()};$('homeBtn').onclick=()=>map.fitBounds(boundaryLayer.getBounds(),{padding:[20,20]});
 $('labelsBtn').onclick=()=>{labelsOn=!labelsOn;drawRoads()};
 $('trainee').value=localStorage.getItem('cfdTrainee')||'';$('trainee').onchange=e=>localStorage.setItem('cfdTrainee',e.target.value);
-loadData(false);
+$('employeeId').value=localStorage.getItem('cfdEmployeeId')||'';$('employeeId').onchange=e=>localStorage.setItem('cfdEmployeeId',e.target.value);
+loadData(false);recordVisit();
 
 const qObserver=new MutationObserver(()=>{const m=document.getElementById('questionMirror');const q=document.getElementById('question');if(m&&q)m.innerHTML=q.innerHTML;});
 qObserver.observe(document.getElementById('question'),{childList:true,subtree:true,characterData:true});
 const tObserver=new MutationObserver(()=>{const t=document.getElementById('topTimer');const s=document.getElementById('timerStat');if(t&&s)t.textContent=s.textContent;});
 tObserver.observe(document.getElementById('timerStat'),{childList:true,subtree:true,characterData:true});
-document.getElementById('headerPrintBtn').onclick=()=>window.print();
+document.getElementById('headerPrintBtn').onclick=()=>{populatePrintReport();window.print()};
 document.getElementById('headerHomeBtn').onclick=()=>map.fitBounds(boundaryLayer.getBounds(),{padding:[20,20]});
 
 </script>
